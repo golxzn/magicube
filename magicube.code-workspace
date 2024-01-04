@@ -1,0 +1,22 @@
+{
+	"folders": [{"path": "."}],
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Launch magicube",
+				"type": "cppvsdbg",
+				"request": "launch",
+				"program": "${command:cmake.launchTargetPath}",
+				"cwd": "${workspaceFolder}/bin"
+			}
+		]
+	},
+	"settings": {
+		"cmake.configureOnOpen": false,
+		"cmake.parallelJobs":16,
+		"cmake.preferredGenerators":[ "Ninja" ],
+		"cmake.configureSettings": {}
+	}
+}
+
