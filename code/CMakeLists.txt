@@ -12,6 +12,4 @@ target_link_libraries(magicube_target PUBLIC
 
 set_target_properties(magicube_target PROPERTIES
 	OUTPUT_NAME ${PROJECT_NAME}
-	CXX_STANDARD_REQUIRED ON
-	C_STANDARD_REQUIRED ON
 )
