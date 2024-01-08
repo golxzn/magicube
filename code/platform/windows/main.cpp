@@ -1,10 +1,11 @@
-#include <iostream>
+#include <core/app/application.hpp>
+#include <game/magicube/instance.hpp>
 
-#include <core/temp.hpp>
-#include <game/temp.hpp>
+int main() {
+	if (auto app{ gzn::core::application::create() }; app != nullptr) {
+		app->assign_game(std::make_shared<gzn::game::magicube::instance>());
+		return app->run();
+	}
 
-int main(int argc, char *argv[]) {
-	std::cout << gzn::magicube::core::temp_function() << std::endl;
-	std::cout << gzn::magicube::game::temp_function() << std::endl;
-	return 0;
+	return EXIT_FAILURE;
 }

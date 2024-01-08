@@ -37,4 +37,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 
+#========================================== DEFINITIONS ===========================================#
+
+add_compile_definitions(MAGICUBE_$<IF:$<CONFIG:Debug>,DEBUG,RELEASE>)
+
 #========================================= COMPILER FLAGS =========================================#

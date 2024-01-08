@@ -1,4 +1,5 @@
 
+set(BUILD_SHARED_LIBS OFF)
 set(libs_dir ${CMAKE_CURRENT_SOURCE_DIR})
 set(magicube_libraries)
 
@@ -41,6 +42,12 @@ option(SPDLOG_FMT_EXTERNAL ON)
 
 add_subdirectory(${libs_dir}/spdlog)
 list(APPEND magicube_libraries spdlog::spdlog)
+
+
+#=========================================== MAGIC_ENUM ===========================================#
+
+add_subdirectory(${libs_dir}/magic_enum)
+list(APPEND magicube_libraries magic_enum::magic_enum)
 
 #==================================================================================================#
 
