@@ -148,7 +148,6 @@ void instance::update(const double delta) {
 
 	const double offset{ glm::sin(timer * 5.0) * 0.01 };
 	const double rotation{ delta * glm::radians(180.0) };
-	spdlog::info("offset: {}", offset);
 
 	model = glm::rotate(model, static_cast<float>(rotation), glm::vec3{ 0.0f, 1.0f, 0.0f }),
 	model = glm::translate(model, glm::vec3{ 0.0f, offset, 0.0f });
