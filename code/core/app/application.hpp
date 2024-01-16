@@ -10,13 +10,9 @@ struct GLFWwindow;
 
 namespace gzn::core {
 
-namespace io { class inputs; }
-
 enum class notification_type;
 
 class application {
-	friend class io::inputs;
-
 public:
 	using exit_code_type = int32_t;
 
