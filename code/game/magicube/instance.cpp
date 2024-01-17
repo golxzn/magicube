@@ -13,6 +13,7 @@
 #include <glbinding/gl/gl.h>
 
 #include <core/app/application.hpp>
+#include <core/io/inputs.hpp>
 
 #include "game/magicube/instance.hpp"
 
@@ -132,7 +133,7 @@ void instance::start() {
 
 	// == == == == == == == == == == PROGRAM UNIFORM == == == == == == == == == == //
 
-	view = glm::translate(view, glm::vec3(0.0f, 0.0, -3.0f));
+	view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 	projection = make_projection();
 
 	set_matrix("model", model);
@@ -141,6 +142,10 @@ void instance::start() {
 }
 
 void instance::update(const double delta) {
+	if (core::io::inputs::just_released(core::io::key::escape)) {
+		paused = !paused;
+	}
+
 	if (paused) return;
 
 	static double timer{ 0.0 };

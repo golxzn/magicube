@@ -1,14 +1,18 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <glbinding/glbinding.h>
 #include <glbinding/gl/gl.h>
 
+#include "core/tools/clock.hpp"
 #include "core/app/application.hpp"
+#include "core/app/window.hpp"
+#include "core/io/inputs.hpp"
 
 namespace gzn::core {
 
-std::unique_ptr<application> application::create(const glm::ivec2 &size, const std::string_view title) {
+std::unique_ptr<application> application::create() {
 	glfwSetErrorCallback(&application::on_error);
 
 	if (glfwInit() == GLFW_FALSE) {
@@ -16,72 +20,34 @@ std::unique_ptr<application> application::create(const glm::ivec2 &size, const s
 		return nullptr;
 	}
 
-	if (auto window{ glfwGetCurrentContext() }; window && glfwGetWindowUserPointer(window)) {
+	if (s_instance_exists) {
 		spdlog::error("[application::create] Application is already running");
 		return nullptr;
 	}
 
-	if (std::unique_ptr<application> app{ new application{ size, title } }; app && app->initialized()) {
+	if (std::unique_ptr<application> app{ new application{} }; app && app->initialized()) {
+		s_instance_exists = true;
 		return std::move(app);
 	}
 	return nullptr;
 }
 
 application::~application() {
-	if (initialized()) {
-		auto window{ glfwGetCurrentContext() };
-		glfwSetWindowUserPointer(window, nullptr);
-		glfwSetWindowFocusCallback(window, nullptr);
-		glfwSetFramebufferSizeCallback(window, nullptr);
-		glfwSetDropCallback(window, nullptr);
-	}
-
+	m_window.reset(); // to ensure that window will be destroyed before glfwTerminate
 	glfwTerminate();
 }
 
 bool application::initialized() const noexcept {
-	auto window{ glfwGetCurrentContext() };
-	return window && glfwGetWindowUserPointer(window) == this;
+	return m_window && m_window->valid();
 }
 
-application::application(const glm::ivec2 &size, const std::string_view title) {
-	auto monitor{ glfwGetPrimaryMonitor() };
-	const auto *mode{ glfwGetVideoMode(monitor) };
-
-	static const auto set_hint{ [] (const auto hint, const auto value, const auto prompt) {
-		glfwWindowHint(hint, value);
-		spdlog::info("[application::application] [hint] {}: {}", prompt, value);
-	} };
-
-	set_hint(GLFW_CONTEXT_VERSION_MAJOR, defaults::opengl::version_major, "OpenGL major version");
-	set_hint(GLFW_CONTEXT_VERSION_MINOR, defaults::opengl::version_minor, "OpenGL minor version");
-	set_hint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE, "OpenGL profile");
-	set_hint(GLFW_DOUBLEBUFFER, GLFW_TRUE, "Double buffering");
-
-	set_hint(GLFW_RED_BITS,     mode->redBits,     "[video mode] red bits    ");
-	set_hint(GLFW_GREEN_BITS,   mode->greenBits,   "[video mode] green bits  ");
-	set_hint(GLFW_BLUE_BITS,    mode->blueBits,    "[video mode] blue bits   ");
-	set_hint(GLFW_REFRESH_RATE, mode->refreshRate, "[video mode] refresh rate");
-
-#if defined(MAGICUBE_DEBUG)
-	set_hint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE, "Debug context");
-	monitor = nullptr;
-#endif // defined(MAGICUBE_DEBUG)
-
-
-	auto window{ glfwCreateWindow(size.x, size.y, title.data(), monitor, nullptr) };
-	if (!window) {
-		spdlog::error("[application::create] Failed to create GLFW window");
+application::application() : m_window{ std::make_unique<window>() } {
+	if (!m_window->valid()) {
 		return;
 	}
 
-	glfwMakeContextCurrent(window);
-
-	glfwSetWindowUserPointer(window, this);
-	glfwSetWindowFocusCallback(window,     &application::on_focus_changed);
-	glfwSetFramebufferSizeCallback(window, &application::on_framebuffer_size_changed);
-	glfwSetDropCallback(window,            &application::on_drop);
-
+	m_window->set_listener(*this);
+	listen_to_additional_event<window::listener::additional_event::drop>();
 
 	glbinding::initialize(glfwGetProcAddress);
 	gl::glEnable(gl::GL_DEPTH_TEST);
@@ -99,43 +65,39 @@ auto application::run() -> exit_code_type {
 		defaults::opengl::clear_color::b,
 		defaults::opengl::clear_color::a
 	);
+	constexpr std::string_view title_format{ "[{:>5} FPS] {}" };
 
-	double delta{ 0.0 };
-	double previous{ 0.0 };
-	double current{ 0.0 };
+	m_game->start();
 
-	game->start();
+	tools::clock<double> clock;
+	while (!m_window->should_close()) {
+		m_window->poll_events();
 
-	auto window{ glfwGetCurrentContext() };
-
-	while (!glfwWindowShouldClose(window)) {
-		glfwPollEvents();
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+		if (io::inputs::just_released<io::modifier::control>(io::key::q)) {
 			notify(notification_type::quit);
-			glfwSetWindowShouldClose(window, GLFW_TRUE);
+			m_window->close();
 		}
 
-		current = glfwGetTime();
-		delta = current - previous;
-		previous = current;
-
-		game->update(delta);
+		const auto delta_time{ clock.delta() };
+		m_window->set_title(fmt::format(
+			title_format, static_cast<int32_t>(1.0 / delta_time), defaults::window::title));
+		m_game->update(delta_time);
 
 		gl::glClear(gl::GL_COLOR_BUFFER_BIT | gl::GL_DEPTH_BUFFER_BIT);
 
-		game->draw(/* render */);
+		m_game->draw(/* render */);
 
-		glfwSwapBuffers(window);
+		m_window->swap_buffers();
 	}
 
-	game->stop();
+	m_game->stop();
 
 	return EXIT_SUCCESS;
 }
 
 void application::assign_game(const std::shared_ptr<game_base> &game) {
-	if (this->game == nullptr) {
-		this->game = game;
+	if (m_game == nullptr) {
+		m_game = game;
 		spdlog::info("[application::assign_game] Game was assigned");
 	} else {
 		spdlog::warn("[application::assign_game] Game is already assigned. Ignoring upcoming game");
@@ -143,32 +105,31 @@ void application::assign_game(const std::shared_ptr<game_base> &game) {
 }
 
 void application::notify(const notification_type notification) const {
-	if (game != nullptr) {
-		game->notification(notification);
+	if (m_game != nullptr) {
+		m_game->notification(notification);
 	}
 }
 
-void application::on_focus_changed(GLFWwindow *window, const int32_t focused) {
+void application::on_close() {
+	spdlog::info("[application::on_close] Window is about to be closed");
+	notify(notification_type::closing);
+}
+
+void application::on_focus_changed(const bool focused) {
 	spdlog::info("[application::on_focus_changed] Window {}", focused ? "got focus" : "lost focus");
-	if (auto app{ static_cast<application *>(glfwGetWindowUserPointer(window)) }; app != nullptr) {
-		app->notify(focused == GLFW_TRUE
-			? notification_type::focus_gained
-			: notification_type::focus_lost
-		);
-	}
+	notify(focused ? notification_type::focus_gained : notification_type::focus_lost);
 }
 
-void application::on_framebuffer_size_changed(GLFWwindow *window, const int32_t width,
-		const int32_t height) {
-	gl::glViewport(0, 0, width, height);
-	if (auto app{ static_cast<application *>(glfwGetWindowUserPointer(window)) }; app != nullptr) {
-		app->notify(notification_type::framebuffer_size_changed);
-	}
+void application::on_framebuffer_size_changed(const glm::i32vec2 &size) {
+	gl::glViewport(0, 0, size.x, size.y);
+	notify(notification_type::framebuffer_size_changed);
 }
 
-void application::on_drop(GLFWwindow *window, const int32_t count, const char **paths) {
-	spdlog::info("[application::on_drop] Dropped {} path{}", count, count > 1 ? "s" : "");
-	for (int32_t i = 0; i < count; i++) {
+void application::on_drop(std::vector<std::string_view> &&paths) {
+	spdlog::info("[application::on_drop] Dropped {} path{}",
+		paths.size(), paths.size() > 1 ? "s" : "");
+
+	for (size_t i{}; i < paths.size(); ++i) {
 		spdlog::info("[application::on_drop]    Path #{:<3}: {}", i, paths[i]);
 	}
 }

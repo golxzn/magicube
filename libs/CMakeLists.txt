@@ -12,9 +12,9 @@ list(APPEND magicube_libraries OpenGL::GL Threads::Threads)
 
 #=========================================== GLBINDING ============================================#
 
-option(OPTION_BUILD_TOOLS OFF)
-option(OPTION_BUILD_EXAMPLES OFF)
-option(OPTION_USE_GIT_INFORMATION OFF)
+option(OPTION_BUILD_TOOLS "" OFF)
+option(OPTION_BUILD_EXAMPLES "" OFF)
+option(OPTION_USE_GIT_INFORMATION "" OFF)
 
 add_subdirectory(${libs_dir}/glbinding)
 list(APPEND magicube_libraries glbinding::glbinding)
@@ -38,7 +38,7 @@ list(APPEND magicube_libraries fmt::fmt)
 
 #============================================= SPDLOG =============================================#
 
-option(SPDLOG_FMT_EXTERNAL ON)
+option(SPDLOG_FMT_EXTERNAL "" ON)
 
 add_subdirectory(${libs_dir}/spdlog)
 list(APPEND magicube_libraries spdlog::spdlog)

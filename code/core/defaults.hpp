@@ -11,6 +11,13 @@ namespace window {
 	constexpr int32_t width{ 1720 };
 	constexpr int32_t height{ 1080 };
 	constexpr std::string_view title{ "[magicube]" };
+	constexpr bool full_screen{
+#if defined(MAGICUBE_DEBUG)
+		false
+#else
+		true
+#endif
+	};
 
 } // namespace window
 
