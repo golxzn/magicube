@@ -1,3 +1,5 @@
+#include <limits>
+
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <spdlog/spdlog.h>
@@ -123,11 +125,13 @@ bool inputs::just_scrolled(const std::chrono::milliseconds interval) noexcept {
 }
 
 bool inputs::just_vertical_scrolled(const std::chrono::milliseconds interval) noexcept {
-	return last_scroll.delta.y != 0.0 && just_scrolled(interval);
+	return std::abs(last_scroll.delta.y) >= std::numeric_limits<double>::epsilon()
+		&& just_scrolled(interval);
 }
 
 bool inputs::just_horizontal_scrolled(const std::chrono::milliseconds interval) noexcept {
-	return last_scroll.delta.x != 0.0 && just_scrolled(interval);
+	return std::abs(last_scroll.delta.x) >= std::numeric_limits<double>::epsilon()
+		&& just_scrolled(interval);
 }
 
 bool inputs::has_modifier(const modifier mod) noexcept {
